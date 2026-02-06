@@ -1,0 +1,44 @@
+name: Sync upstream source
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout control branch
+        uses: actions/checkout@v4
+        with:
+          ref: backup-meta
+          fetch-depth: 0
+
+      - name: Set git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream repo
+        run: |
+          git remote add upstream https://github.com/badafans/dns-proxy.git || true
+
+      - name: Fetch upstream (all branches & tags)
+        run: |
+          git fetch upstream --prune --tags
+
+      - name: Sync branches
+        run: |
+          for branch in $(git branch -r | grep upstream/ | grep -v HEAD | sed 's|upstream/||'); do
+            echo "Sync branch: $branch"
+            git checkout -B "$branch" "upstream/$branch"
+            git push origin "$branch" --force
+          done
+
+      - name: Sync tags
+        run: |
+          git push origin --tags --force
